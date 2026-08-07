@@ -20,8 +20,8 @@ the running game jar, and the known-broken areas that must not be "re-fixed" fro
 
 These are not style preferences. Breaking any of them breaks the mod for players.
 
-1. **Documentation never ships.** `README.md`, `AGENTS.md`, `.git/`, `.claude/` live at the
-   repository root, **outside `Contents/`**. Only `Contents/` is uploaded to Steam. Never place a
+1. **Documentation and tooling never ship.** `README.md`, `AGENTS.md`, `CHANGELOG.md`, `scripts/`,
+   `tests/`, `.git/` and `.claude/` live at the repository root, **outside `Contents/`**. Only `Contents/` is uploaded to Steam. Never place a
    `.md` file inside `Contents/`.
 2. **Never trust a Build 41 tutorial or the original Champy mod for API.** Build 42 moved tree
    chopping out of the combat path entirely (§5). Anything you remember about `OnWeaponHitTree`
@@ -53,8 +53,11 @@ and by the in-game uploader.
 WoodcuttingSkill_B42/                  <- repo root · NOT uploaded
 ├── README.md                          <- player-facing
 ├── AGENTS.md                          <- this file
+├── CHANGELOG.md                       <- release history; the version here IS the tag
 ├── workshop.txt                       <- Steam listing (BBCode). Description capped at 8000 bytes
 ├── preview.png                        <- 256x256 exactly, enforced by the game
+├── scripts/gen_translations.py        <- regenerates every Translate/<LANG>/*.json
+├── tests/harness.lua                  <- behavioural tests, see §11
 ├── .gitattributes                     <- LF for text, binary for png
 ├── .gitignore
 ├── .claude/                           <- Claude Code settings + CLAUDE.md
@@ -764,10 +767,13 @@ Semantic versioning, tracked in `mod.info`'s `modversion=`.
 | PATCH | Bug fix, balance tweak, translation fix |
 
 1. Bump `modversion=` in `mod.info`.
-2. Run the static checks in §11.
-3. Update the `[h1]What's new[/h1]` section of `workshop.txt`.
-4. Commit, tag `vX.Y.Z`, push.
-5. Upload `Contents/` via the in-game Workshop uploader.
+2. Add a `CHANGELOG.md` entry under a new `## [X.Y.Z] — YYYY-MM-DD` heading, and update the link
+   reference at the bottom of the file.
+3. Run the static checks, the harness and the server smoke test in §11.
+4. Update the `[h1]Latest Update[/h1]` section of `workshop.txt` and the summary in `README.md`.
+5. Open a PR, merge it, then tag the merge commit `vX.Y.Z` and push the tag. `modversion`, the
+   `CHANGELOG.md` heading and the tag must all agree.
+6. Upload `Contents/` via the in-game Workshop uploader.
 
 `workshop.txt` is the Steam listing, not a build artifact. Its `description=` lines are
 concatenated and submitted on **every** upload. ⚠ **Steam caps the description at 8000 bytes** —

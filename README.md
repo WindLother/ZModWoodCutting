@@ -134,22 +134,15 @@ your language to the tables in [`scripts/gen_translations.py`](scripts/gen_trans
 
 ## Changelog
 
-### 1.1.0 — the XP fix
+Full history in **[CHANGELOG.md](CHANGELOG.md)**.
 
-- **Fixed: chopping trees awarded no Woodcutting XP.** Build 42 moved tree felling off the combat
-  path onto a timed action that raises no Lua event, so every reward in the mod was silently dead —
-  and with the skill pinned at level 0, so were the damage scaling, the one-hit threshold and the
-  loot bonuses. The mod now hooks the timed action directly.
-- Fixed: tree-felled bonus XP, extra loot and the tree counter never triggered.
-- Added: Woodcutting XP for clearing bushes, plus the missing bush counter.
-- Fixed: the Sandbox page and the Woodcutter trait displayed raw keys such as
-  `Sandbox_Woodcutting_xpMultiplier` in every language.
-- Fixed: translations never loaded on Linux dedicated servers.
-- Fixed: the Nature Abundance setting was overwritten and had no effect on loot rates.
-- Fixed: felling could be credited to a neighbouring tree when two stood side by side.
-- Added: calorie saving per level, which was configured but never applied.
-- Added: `bushRemovedXp` Sandbox option. Damage scaling now also applies reliably on dedicated
-  servers.
+**1.1.0 — the XP fix.** Chopping trees awarded no Woodcutting XP at all: Build 42 moved tree
+felling off the combat path onto a timed action that raises no Lua event, so every reward in the
+mod was silently dead — and with the skill pinned at level 0, so were the damage scaling, the
+one-hit threshold and the loot bonuses. Fixing it also brought back the felled-tree bonus, the
+extra-loot system and the tree counter, and along the way: the Sandbox page and Woodcutter trait no
+longer show raw keys, translations load on Linux servers, Nature Abundance actually affects loot,
+and bushes grant XP.
 
 Technical detail, including the decompiled evidence for the root cause, is in
 [AGENTS.md §5](AGENTS.md#5--build-42-tree-chopping--the-critical-engine-change) and
