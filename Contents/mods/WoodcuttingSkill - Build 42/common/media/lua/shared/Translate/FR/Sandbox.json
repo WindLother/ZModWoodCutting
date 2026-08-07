@@ -7,7 +7,7 @@
     "Sandbox_Woodcutting_damageMaxMultiplier": "Multiplicateur de dégâts maximum",
     "Sandbox_Woodcutting_damageMaxMultiplier_tooltip": "Plafond du multiplicateur total de dégâts aux arbres.",
     "Sandbox_Woodcutting_oneHitLevelThreshold": "Niveau pour abattre en un coup",
-    "Sandbox_Woodcutting_oneHitLevelThreshold_tooltip": "À partir de ce niveau d'Abattage du bois, les arbres tombent en un coup. Au-dessus de 10, désactivé.",
+    "Sandbox_Woodcutting_oneHitLevelThreshold_tooltip": "À partir de ce niveau d'Abattage du bois, les arbres tombent en un coup. Mettez 11 ou plus pour désactiver complètement. 0 fait tomber tous les arbres en un coup dès le départ.",
     "Sandbox_Woodcutting_oneHitTreeDamage": "Valeur de TreeDamage en un coup",
     "Sandbox_Woodcutting_oneHitTreeDamage_tooltip": "TreeDamage utilisé une fois le seuil d'un coup atteint.",
     "Sandbox_Woodcutting_onlyForAxes": "Haches uniquement",

@@ -53,6 +53,11 @@ local function applyTreeDamageMult(player, weapon)
     local settings = Woodcutting.Settings
     local baseDamage = getBaseTreeDamage(weapon)
 
+    -- The threshold is a plain level comparison, so its edges are deliberate and both are
+    -- reachable from Sandbox: 0 means every tree falls in one swing from level 0, and anything
+    -- above 10 can never be met, which is how the feature is switched off. The Sandbox maximum is
+    -- 99 for exactly that reason - do not lower it back to 10 without also giving the option a
+    -- separate disable sentinel.
     if settings.oneHitLevelThreshold and level >= settings.oneHitLevelThreshold then
         weapon:setTreeDamage(settings.oneHitTreeDamage or 2000)
         Woodcutting.diag("applyTreeDamageMult:onehit", "One-hit threshold reached (level=" .. tostring(level) .. "), setTreeDamage(" .. tostring(settings.oneHitTreeDamage or 2000) .. ")")

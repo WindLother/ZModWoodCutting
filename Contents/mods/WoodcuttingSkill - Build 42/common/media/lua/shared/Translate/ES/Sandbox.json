@@ -7,7 +7,7 @@
     "Sandbox_Woodcutting_damageMaxMultiplier": "Multiplicador de daño máximo",
     "Sandbox_Woodcutting_damageMaxMultiplier_tooltip": "Límite superior del multiplicador total de daño a árboles.",
     "Sandbox_Woodcutting_oneHitLevelThreshold": "Nivel para talar de un golpe",
-    "Sandbox_Woodcutting_oneHitLevelThreshold_tooltip": "A partir de este nivel de Tala de árboles, los árboles caen de un golpe. Por encima de 10 se desactiva.",
+    "Sandbox_Woodcutting_oneHitLevelThreshold_tooltip": "A partir de este nivel de Tala de árboles, los árboles caen de un golpe. Usa 11 o más para desactivarlo por completo. 0 hace que todos los árboles caigan de un golpe desde el principio.",
     "Sandbox_Woodcutting_oneHitTreeDamage": "Valor de TreeDamage de un golpe",
     "Sandbox_Woodcutting_oneHitTreeDamage_tooltip": "TreeDamage usado al alcanzar el umbral de un golpe.",
     "Sandbox_Woodcutting_onlyForAxes": "Solo para hachas",

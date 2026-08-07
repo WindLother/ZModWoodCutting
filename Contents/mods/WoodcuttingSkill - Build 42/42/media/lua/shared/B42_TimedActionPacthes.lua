@@ -196,6 +196,11 @@ end
 -- No isClient() guard is needed. LuaTimedActionNew.complete() returns before invoking the Lua
 -- complete function when GameClient.client is true, so this body only ever runs in singleplayer
 -- or on the server - which is exactly where the grant belongs.
+--
+-- ⚠ ISRemoveBush is TWO jobs behind one class. Vanilla branches on self.wallVine throughout
+-- (isValid, waitToStart, update, complete): with the flag set it strips ivy off a wall instead of
+-- clearing a bush. Ripping down vines is not woodcutting, so it must not pay bushRemovedXp or
+-- increment the bushkills counter.
 
 local function patchRemoveBushAction()
     local class = requireClass("ISRemoveBush")
@@ -207,8 +212,19 @@ local function patchRemoveBushAction()
     local originalComplete = class.complete
 
     function class:complete()
+        -- Sampled BEFORE delegating, because complete() is what removes the bush. Requiring the
+        -- cuttable object to still be there also closes a stale-target race: isValid() ran when
+        -- the action was queued, and on a server another player can clear the same square in
+        -- between. No bush on the square means nothing to reward.
+        local removedBush = not self.wallVine
+            and self.square ~= nil
+            and self:getBushObject(self.square) ~= nil
+
         local result = originalComplete(self)
-        Woodcutting.onBushRemoved(self.character, self.weapon)
+
+        if removedBush then
+            Woodcutting.onBushRemoved(self.character, self.weapon)
+        end
         return result
     end
 end

@@ -105,7 +105,12 @@ SandboxVars.Woodcutting = {
 }
 ```
 
-Set `oneHitLevelThreshold` above 10 to disable the one-hit behaviour entirely.
+`oneHitLevelThreshold` is a plain level comparison, and both edges are usable: set it to **11 or
+higher** (the option accepts up to 99) to disable one-hit felling entirely, or to **0** to make
+every tree fall in a single swing from level 0.
+
+`bushRemovedXp` is awarded for clearing an actual bush. Stripping wall vines uses the same vanilla
+action but is not woodcutting, so it grants nothing.
 
 ---
 

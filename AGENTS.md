@@ -26,8 +26,8 @@ These are not style preferences. Breaking any of them breaks the mod for players
 2. **Never trust a Build 41 tutorial or the original Champy mod for API.** Build 42 moved tree
    chopping out of the combat path entirely (§5). Anything you remember about `OnWeaponHitTree`
    from B41 is wrong here.
-3. **Verify Java API against the jar before calling it.** The recipe is in §11. Guessing is what
-   produced the current XP bug.
+3. **Verify Java API and vanilla Lua against the install before calling it.** The recipe is in §11.
+   Assuming a B41 behaviour still held is what produced the XP bug that 1.1.0 exists to fix.
 4. **Translations are JSON only.** Build 42.20.2 reads *only*
    `media/lua/shared/Translate/<LANG>/<Type>.json`. Legacy `<Type>_<LANG>.txt` files are dead
    weight — see §7.
@@ -284,6 +284,14 @@ once and is where vanilla actually removes the bush. It also needs no `isClient(
 `LuaTimedActionNew.complete()` returns *before* invoking the Lua `complete` function when
 `GameClient.client` is true, so the body only ever runs in singleplayer or on the server.
 
+⚠ **`ISRemoveBush` is two jobs behind one class.** `isValid`, `waitToStart`, `update` and `complete`
+all branch on `self.wallVine`: with the flag set the action strips ivy off a wall rather than
+clearing a bush. Ripping down vines is not woodcutting, so the wrapper requires `not self.wallVine`
+before paying out — otherwise wall vines would grant `bushRemovedXp` and inflate `bushkills`. It
+also samples `self:getBushObject(self.square)` **before** delegating and only rewards if a cuttable
+object was actually there: `isValid()` ran when the action was queued, and on a server another
+player can clear the same square in between.
+
 Note that `ISRemoveBush:animEvent` guards its endurance block with `isServer()`, so in
 **singleplayer** `ISRemoveBush:useEndurance` is never called — the endurance-refund wrapper on that
 class is a no-op in SP. That is vanilla's behaviour, not ours. `ISChopTreeAction` has no such guard
@@ -428,6 +436,23 @@ Also check `Zomboid/console.txt` after launching — 42.20.2 logs an error line 
 `shared/WoodcuttingSandboxBridge.lua` copies them into `Woodcutting.Settings` on `OnGameStart`,
 `OnServerStarted` and `OnInitGlobalModData`.
 
+### `oneHitLevelThreshold` has no disable flag — its range *is* the switch
+
+The runtime test is a plain `level >= threshold`, so both edges are meaningful and both must stay
+reachable from Sandbox:
+
+| Value | Behaviour |
+|---|---|
+| `0` | every tree falls in one swing from level 0 |
+| `1`–`10` | one-hit from that level |
+| `11`–`99` | unreachable, so one-hit is off |
+
+The option ships `min = 0, max = 99`. It was `max = 10` until 1.1.0, while the README and all five
+tooltips told players to "set above 10 to disable" — advice the UI made impossible to follow. **If
+you ever lower the maximum back to 10, you must add a real disable sentinel and handle it in
+`WoodCuttingDamagePerLevel.lua` first.** The tooltips now spell out both edges, because a player
+hunting for an off switch reaches for `0`, which does the exact opposite.
+
 Adding an option requires **four** edits, and skipping any one of them fails silently:
 
 1. the `option` block in `sandbox-options.txt`
@@ -537,6 +562,8 @@ jar, all 15 translation JSONs parse as UTF-8, and no game-parsed file contains a
 | 12 | `mod.info` had no `author`, no `modversion` | added (§2) |
 | 14 | `steamdesc.txt` shipped inside `Contents/` | moved to the repo root |
 | 15 | `client/WoodcuttingSkillTraits.lua` was an empty stub, and collided by basename with the `shared/` file of the same name | deleted |
+| 18 | Stripping wall vines granted `bushRemovedXp` and incremented `bushkills` — vanilla reuses `ISRemoveBush` for both jobs | wrapper requires `not self.wallVine` and a real bush on the square (§5) |
+| 19 | `oneHitLevelThreshold` capped at 10 while the docs and all five tooltips said "set above 10 to disable" | `max = 99`; tooltips now state what `0` and `11+` actually do (§8) |
 
 ### Still open
 
@@ -655,15 +682,18 @@ this release exists to fix and should be run first.
    is installed, extra loot rolls on a medium/large tree.
 4. **Clear a bush** — XP lands exactly **once**, not once per swing. This is the regression test
    for hooking `complete()` rather than `animEvent()`.
-5. **Sandbox page** — all 19 options show a translated label and tooltip, no raw `Sandbox_*` keys,
+5. **Strip a wall vine** — XP does **not** land and `bushkills` does not move (§5).
+6. **Set `oneHitLevelThreshold` to 99** — trees never one-hit, at any level. Set it to `0` on
+   another save — every tree falls in one swing immediately (§8).
+7. **Sandbox page** — all 19 options show a translated label and tooltip, no raw `Sandbox_*` keys,
    no stray `%%`.
-6. **Woodcutter trait** in character creation shows a name and description, not `UI_trait_*`.
-7. **Level to the one-hit threshold** — a tree falls in one swing.
-8. **Nature Abundance** — set it to Very Poor and Very Abundant on two saves and confirm the loot
+8. **Woodcutter trait** in character creation shows a name and description, not `UI_trait_*`.
+9. **Level to the default one-hit threshold (6)** — a tree falls in one swing.
+10. **Nature Abundance** — set it to Very Poor and Very Abundant on two saves and confirm the loot
    rate actually differs. This never worked before 1.1.0 (§8).
-9. **Dedicated server, two clients** — XP replicates, is granted server-side only, and damage
-   scaling applies for a remote player. Confirm on a **Linux** server that translations load (§7).
-10. **`console.txt` / `translationProblems.txt`** — zero percent-handling errors, zero missing keys,
+11. **Dedicated server, two clients** — XP replicates, is granted server-side only, and damage
+    scaling applies for a remote player. Confirm on a **Linux** server that translations load (§7).
+12. **`console.txt` / `translationProblems.txt`** — zero percent-handling errors, zero missing keys,
     and check for any `chopTreeNotAxe:` diagnostic (§10 item 11).
 
 ---

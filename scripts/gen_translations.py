@@ -88,12 +88,15 @@ SANDBOX = {
         "ES": ("Multiplicador de daño máximo", "Límite superior del multiplicador total de daño a árboles."),
         "FR": ("Multiplicateur de dégâts maximum", "Plafond du multiplicateur total de dégâts aux arbres."),
     },
+    # Max levels are 10, so any threshold of 11+ can never be reached and disables the feature.
+    # 0 is not "off" - it means every tree falls in one swing from level 0. Say so explicitly:
+    # a player looking for a disable switch will otherwise reach for 0 first.
     "oneHitLevelThreshold": {
-        "EN": ("One-Hit Level Threshold", "At or above this Woodcutting level, trees fall in one swing. Set above 10 to disable."),
-        "PT": ("Nível para Derrubar num Golpe", "A partir deste nível de Corte de Madeira, as árvores caem num golpe. Acima de 10 desativa."),
-        "PTBR": ("Nível para Derrubar em 1 Golpe", "A partir deste nível de Corte de Madeira, as árvores caem em um golpe. Acima de 10 desativa."),
-        "ES": ("Nivel para talar de un golpe", "A partir de este nivel de Tala de árboles, los árboles caen de un golpe. Por encima de 10 se desactiva."),
-        "FR": ("Niveau pour abattre en un coup", "À partir de ce niveau d'Abattage du bois, les arbres tombent en un coup. Au-dessus de 10, désactivé."),
+        "EN": ("One-Hit Level Threshold", "At or above this Woodcutting level, trees fall in one swing. Set to 11 or higher to disable this entirely. 0 means every tree falls in one swing from the start."),
+        "PT": ("Nível para Derrubar num Golpe", "A partir deste nível de Corte de Madeira, as árvores caem num golpe. Use 11 ou mais para desativar por completo. 0 faz todas as árvores caírem num golpe desde o início."),
+        "PTBR": ("Nível para Derrubar em 1 Golpe", "A partir deste nível de Corte de Madeira, as árvores caem em um golpe. Use 11 ou mais para desativar por completo. 0 faz todas as árvores caírem em um golpe desde o início."),
+        "ES": ("Nivel para talar de un golpe", "A partir de este nivel de Tala de árboles, los árboles caen de un golpe. Usa 11 o más para desactivarlo por completo. 0 hace que todos los árboles caigan de un golpe desde el principio."),
+        "FR": ("Niveau pour abattre en un coup", "À partir de ce niveau d'Abattage du bois, les arbres tombent en un coup. Mettez 11 ou plus pour désactiver complètement. 0 fait tomber tous les arbres en un coup dès le départ."),
     },
     "oneHitTreeDamage": {
         "EN": ("One-Hit TreeDamage value", "TreeDamage used once the one-hit threshold is reached."),
