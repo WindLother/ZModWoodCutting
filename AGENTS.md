@@ -668,10 +668,65 @@ print("undefined:", {k: sorted(v) for k, v in c.items() if k not in d} or "none"
 PY
 ```
 
+### The Lua behavioural harness
+
+```bash
+lua tests/harness.lua        # 29 assertions; exits non-zero on failure
+```
+
+It loads the **real** vanilla `ISBaseObject` / `ISBaseTimedAction` / `ISChopTreeAction` /
+`ISRemoveBush` from the install, then the **real** mod Lua on top, with the PZ globals stubbed.
+Nothing under test is reimplemented — the wrappers run against vanilla's own `animEvent()` and
+`complete()` bodies. It covers per-swing XP, the felled latch, the MP-client guard, metadata
+sampling before removal, wall vine vs bush vs stale square, the `oneHitLevelThreshold` edges,
+TreeDamage snapshot stability, abundance idempotency and the melee path.
+
+Any Lua 5.1-compatible interpreter works; it is also clean under 5.5. **One caveat:** vanilla
+`ISRemoveBush.lua:152` assigns to a numeric-`for` control variable (vanilla even tags it
+`FIXME: illegal in Lua`). That is legal and dead under Lua 5.1 but a compile error under 5.4+, so
+the harness's `require` neutralises exactly that statement and nothing else.
+
+**What it cannot prove:** that the engine raises `ChopTree` / `Chop` anim events at the assumed
+cadence, anything about rendering, networking or persistence, or the Linux path-casing fix. Those
+need the game.
+
+### Dedicated-server smoke test
+
+Boots the real engine headless and validates the whole load path — mod detection, `perks.txt`,
+`sandbox-options.txt`, translation discovery, and patch application — without anyone playing.
+
+```bash
+# Zomboid/Server/wdtest.ini needs: Mods=WoodcuttingSkill_B42
+cd "$PZ"
+./jre64/bin/java.exe -XX:+UseZGC -Xmx3072m \
+  -Djava.library.path='./natives/;./natives/win64/;./' -cp './;projectzomboid.jar' \
+  zombie.network.GameServer -servername wdtest -adminpassword <pw> -nosteam
+```
+
+Pass conditions in the log:
+
+| Line | Proves |
+|---|---|
+| `loading WoodcuttingSkill_B42` | mod detected, `common/` + `42/` both scanned |
+| `patchTimedAction(ISChopTreeAction) patched successfully` | `new` / `useEndurance` wrappers attached |
+| `ISChopTreeAction:animEvent patched successfully` | **the XP hook is live** |
+| `ISRemoveBush:complete patched successfully` | bush hook attached |
+| `getPerk() resolved via Perks.Woodcutting direct field` | `perks.txt` parsed and `CustomPerks.initLua()` populated the Lua `Perks` table |
+| `AdjustNatureAbundance() applied factor …` | the bridge ran and drove it |
+| **absence of** `SandboxVars.Woodcutting is nil` | `sandbox-options.txt` produced a real sandbox block |
+
+Then check the generated `Zomboid/Server/wdtest_SandboxVars.lua` for the `Woodcutting = {` block —
+every option with its min/max/default, which is the only place the engine's own parse of
+`sandbox-options.txt` is visible.
+
+Ignore `NoSuchFileException` for `<mod>/media/AnimSets` and `<mod>/media/actiongroups`: the engine
+probes those for every mod and logs a stack trace when they are absent.
+
 ### In-game checks
 
-**None of these have been run against 1.1.0 yet.** Items 1–3 are the regression tests for the bug
-this release exists to fix and should be run first.
+The harness and the server smoke test above both pass. **These are what remains — nothing below
+has been run against 1.1.0.** Items 1–3 are the regression tests for the bug this release exists
+to fix and should be run first.
 
 1. **New singleplayer save, 42.20.2** — Woodcutting appears in the Skills tab under Survivalist,
    with a translated name and description. `console.txt` shows
