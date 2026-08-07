@@ -1,6 +1,0 @@
-IG_UI_EN = {
-    IGUI_perks_Woodcutting = "Woodcutting",
-    IGUI_perks_Woodcutting_Description = "Cut trees and remove bushes more efficiently: -7% endurance per level, +2 tree damage per level, +10% remove-bush speed per level, chance for extra loot on medium/large trees; at level 8 chopping won't escalate to Excessive Exertion.",
-    IGUI_trees = "Trees",
-    IGUI_bushes = "Bushes",
-}

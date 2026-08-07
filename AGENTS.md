@@ -5,7 +5,7 @@ file.** It describes the Build 42 mod layout, the engine facts that were verifie
 the running game jar, and the known-broken areas that must not be "re-fixed" from memory.
 
 - **Target game version:** Build 42.20.2 (`revision=ffe7a8a4b1`) — Build 42 only, no B41 tree here.
-- **Mod ID:** `WoodcuttingSkill_B42` · **Workshop ID:** `3559783131`
+- **Mod version:** `1.1.0` · **Mod ID:** `WoodcuttingSkill_B42` · **Workshop ID:** `3559783131`
 - **Lua namespace:** `Woodcutting` (single global table) · **Perk ID:** `Woodcutting`
 - **Sandbox namespace:** `SandboxVars.Woodcutting`
 - **Upstream:** overhaul of *Woodcutting Skill* by Champy (Workshop `2944004910`)
@@ -61,18 +61,18 @@ WoodcuttingSkill_B42/                  <- repo root · NOT uploaded
 └── Contents/                          <- ██ THE ONLY FOLDER UPLOADED TO STEAM ██
     └── mods/
         └── WoodcuttingSkill - Build 42/
+            ├── common/                <- ██ shared across all 42.x ██
+            │   └── media/lua/shared/Translate/{EN,PT,PTBR,ES,FR}/{IG_UI,Sandbox,UI}.json
             └── 42/                    <- ██ resolves to game version 42.0 → loads on every 42.x ██
                 ├── mod.info
                 ├── poster.png
-                ├── steamdesc.txt      <- stale copy of the listing; not read by the game
                 └── media/
                     ├── perks.txt
                     ├── sandbox-options.txt
                     ├── ui/Traits/trait_woodcutter.png
                     └── lua/
                         ├── client/
-                        │   ├── IsCharacterTreeKills.lua      <- Kill Count mod integration
-                        │   └── WoodcuttingSkillTraits.lua    <- empty compatibility stub
+                        │   └── IsCharacterTreeKills.lua      <- Kill Count mod integration
                         ├── server/
                         │   ├── Woodcutting/WoodCuttingDamagePerLevel.lua
                         │   ├── Woodcutting/WoodcuttingExtraLoot.lua
@@ -81,16 +81,15 @@ WoodcuttingSkill_B42/                  <- repo root · NOT uploaded
                             ├── B42_TimedActionPacthes.lua       <- note the typo in the filename
                             ├── WoodcuttingSandboxBridge.lua
                             ├── WoodcuttingSkillDefinitions.lua
-                            ├── WoodcuttingSkillTraits.lua
-                            └── translate/…                      <- ⚠ wrong case, see §7
+                            └── WoodcuttingSkillTraits.lua
 ```
 
-### ⚠ There is no `common/` folder
+### Why translations live in `common/`
 
-The wiki calls `common/` mandatory. In practice Build 42 detects the mod from the `42/` version
-folder alone, which is why it works today. Adding `common/` is still the correct move — it is where
-build-agnostic assets (translations, the trait icon) belong, and `CustomPerks.init()` /
-`Translator` both fall back to it. Do this as part of the translation fix in §7, not on its own.
+`Translator` calls `tryFillMapFromFile` with `getCommonDir()` **first**, then `getVersionDir()`,
+merging both — verified in the 42.20.2 bytecode. Translations are identical across all 42.x, so
+`common/` is where they belong: a future `42.20/` folder then never has to duplicate them. It also
+satisfies the wiki's rule that `common/` should exist.
 
 ### Version-folder resolution
 
@@ -101,13 +100,13 @@ common source of "my change didn't apply" confusion.
 
 ### `mod.info`
 
-There is exactly one, at `Contents/mods/WoodcuttingSkill - Build 42/42/mod.info`. It currently
-declares only `name`, `id`, `poster`, `description`.
+There is exactly one, at `Contents/mods/WoodcuttingSkill - Build 42/42/mod.info`. It declares
+`name`, `id`, `author`, `modversion`, `poster`, `description`.
 
-`ChooseGameInfo$Mod` also exposes `author`, `icon`, `modversion`, `versionMin`, `versionMax`,
-`require`. **`author` and `modversion` should be added** — without `modversion` there is no way for
-a player or a server admin to tell which build they are running, which makes bug reports much
-harder to triage. Name the file all-lowercase `mod.info`; Linux is case-sensitive.
+`ChooseGameInfo$Mod` also exposes `icon`, `versionMin`, `versionMax` and `require` if they are ever
+needed. **Bump `modversion` on every release** — it is the only thing that tells a player or server
+admin which build they are running, and bug reports are near-impossible to triage without it. Name
+the file all-lowercase `mod.info`; Linux is case-sensitive.
 
 ---
 
@@ -116,17 +115,34 @@ harder to triage. Name the file all-lowercase `mod.info`; Linux is case-sensitiv
 | Feature | Implemented in | Depends on |
 |---|---|---|
 | Registers the `Woodcutting` perk | `42/media/perks.txt` | `CustomPerks` (§4) |
-| Woodcutting + Axe XP per tree hit | `server/XpSystem/WoocuttingHitTree.lua` | `OnWeaponHitTree` ⚠ §5 |
-| Woodcutting + Axe XP on tree felled | `server/XpSystem/WoocuttingHitTree.lua` | `Woodcutting.onTreeFelled` ⚠ §5 |
-| Weapon-condition save per level | `server/XpSystem/WoocuttingHitTree.lua` | `OnWeaponHitTree` ⚠ §5 |
-| Tree-damage scaling / one-hit threshold | `server/Woodcutting/WoodCuttingDamagePerLevel.lua` | `OnEquipPrimary`, `LevelPerk`, `OnWeaponHitTree` |
-| Extra loot on medium/large trees | `server/Woodcutting/WoodcuttingExtraLoot.lua` | `Woodcutting.onTreeFelled` ⚠ §5 |
+| Woodcutting + Axe XP per tree hit | `server/XpSystem/WoocuttingHitTree.lua` | `Woodcutting.onTreeHit` (§5) |
+| Woodcutting + Axe XP on tree felled | `server/XpSystem/WoocuttingHitTree.lua` | `Woodcutting.onTreeFelled` (§5) |
+| Woodcutting XP per bush removed | `server/XpSystem/WoocuttingHitTree.lua` | `Woodcutting.onBushRemoved` (§5) |
+| Weapon-condition save per level | `server/XpSystem/WoocuttingHitTree.lua` | `Woodcutting.onTreeHit` |
+| Tree-damage scaling / one-hit threshold | `server/Woodcutting/WoodCuttingDamagePerLevel.lua` | `OnEquipPrimary`, `LevelPerk`, + the `animEvent` hook |
+| Extra loot on medium/large trees | `server/Woodcutting/WoodcuttingExtraLoot.lua` | `Woodcutting.onTreeFelled` |
 | Endurance refund + no severe exhaustion | `shared/B42_TimedActionPacthes.lua` | `useEndurance` wrapper |
+| Calorie saving per level | `shared/B42_TimedActionPacthes.lua` | `caloriesModifier` in the `new` wrapper |
 | Faster bush removal per level | `shared/B42_TimedActionPacthes.lua` | `ISRemoveBush.new` wrapper |
-| Felled-tree detection | `shared/B42_TimedActionPacthes.lua` | `OnWeaponHitTree` ⚠ §5 |
+| Felled-tree detection | `shared/B42_TimedActionPacthes.lua` | `ISChopTreeAction.animEvent` wrapper (§5) |
 | Woodcutter trait + profession/trait XP boosts | `shared/WoodcuttingSkillTraits.lua` | `CharacterTraitDefinition` |
 | Sandbox → `Woodcutting.Settings` | `shared/WoodcuttingSandboxBridge.lua` | `SandboxVars.Woodcutting` |
 | Tree/bush counters in the Kill Count mod | `client/IsCharacterTreeKills.lua` | `modData.treekills` / `bushkills` |
+
+### The three internal events
+
+`WoodcuttingSkillDefinitions.lua` owns a small callback registry so that the code which *detects*
+gameplay (shared, engine-facing) stays separate from the code which *rewards* it (server-only).
+
+| Register with | Dispatched from | Fires |
+|---|---|---|
+| `Woodcutting.addOnTreeHit(cb)` | `B42_TimedActionPacthes.lua` | once per axe swing that lands on a tree |
+| `Woodcutting.addOnTreeFelled(cb)` | `B42_TimedActionPacthes.lua` | once, on the swing that topples a tree |
+| `Woodcutting.addOnBushRemoved(cb)` | `B42_TimedActionPacthes.lua` | once per bush cleared |
+
+Callbacks are invoked through `pcall`, so one broken listener cannot take the others down; failures
+print `[Woodcutting] <event> callback failed: …`. Add new rewards by registering a callback, never
+by adding another engine hook.
 
 ### Load order
 
@@ -231,45 +247,55 @@ and the trigger in `CombatManager.processMaintenanceCheck` is gated on
 `IsoGameCharacter.isActuallyAttackingWithMeleeWeapon()` — a real melee swing that happens to land
 on an `IsoTree`. A timed action is not an attack.
 
-### Consequence
+### Consequence, and what this mod does about it
 
 > **`Events.OnWeaponHitTree` never fires when a player chops a tree in Build 42.**
 
-Everything in this mod that hangs off it is dead:
+Up to and including 1.0.x this mod hung every reward off that event, so **no Woodcutting XP was
+ever awarded**, `Woodcutting.onTreeFelled` never dispatched, and with it the felled-tree XP bonus,
+the entire extra-loot system and the `treekills` counter. The skill could never leave level 0,
+which in turn zeroed the damage scaling, the one-hit threshold and the loot-chance skill bonus.
+One missing event silently disabled almost the whole mod.
 
-| Listener | File | Effect of the failure |
+### The hook, as implemented (1.1.0)
+
+There is no vanilla event, so `B42_TimedActionPacthes.lua` wraps the timed actions directly:
+
+| Wrapper | Guard | Raises |
 |---|---|---|
-| `addWoodcuttingXP` | `WoocuttingHitTree.lua` | **No Woodcutting XP, ever.** The reported bug. |
-| `saveWeaponCondition` | `WoocuttingHitTree.lua` | No condition saving |
-| `onHitTree` (damage rescale) | `WoodCuttingDamagePerLevel.lua` | Falls back to `OnEquipPrimary`/`LevelPerk` |
-| `checkTreeFelled` | `B42_TimedActionPacthes.lua` | `Woodcutting.onTreeFelled` never dispatches |
+| `ISChopTreeAction:animEvent`, `event == "ChopTree"` | `not isClient()` | `onTreeHit` every swing; `onTreeFelled` when `self.tree:getObjectIndex() == -1` after delegating |
+| `ISRemoveBush:complete` | none needed — see below | `onBushRemoved` |
+| `Events.OnWeaponHitTree` | engine-side (server/SP only) | `onTreeHit` with `tree = nil` |
 
-and because `onTreeFelled` never dispatches, the tree-felled XP bonus, the extra-loot system and
-the `modData.treekills` counter are all dead too. The skill can therefore never leave level 0,
-which in turn zeroes the damage scaling, the one-hit threshold, the endurance refund and the
-loot-chance skill bonus. **One missing event silently disables almost the entire mod.**
+Three things make this correct, and each is easy to get wrong:
 
-`modData.bushkills` is read by `client/IsCharacterTreeKills.lua` but is never written by anything —
-that half of the Kill Count integration has no producer at all.
+1. **Read tree size and sprite *before* delegating.** A lethal swing removes the tree, so
+   `getProperty("TreeSize")` and `getSprite()` must be sampled first or the extra-loot system sees
+   nils.
+2. **`self.tree` is the tree.** No `OnTick` polling, no scanning the 3×3 around the character. The
+   pre-1.1.0 `findAdjacentTree` heuristic returned an arbitrary neighbouring tree and has been
+   deleted.
+3. **The `ChopTree` anim event repeats** for as long as the action runs. Per-swing rewards belong
+   there; once-per-tree rewards need the `self.__WDC_felled` latch.
 
-### The correct Build 42 hook points
-
-There is no vanilla event for this. The supported approach is to wrap the timed action, the same
-way `B42_TimedActionPacthes.lua` already wraps `new` and `useEndurance`:
-
-- **Per swing:** wrap `ISChopTreeAction.animEvent` and act on `event == "ChopTree"`, under
-  `if not isClient()`.
-- **Tree felled:** inside that same wrapper, `self.tree:getObjectIndex() == -1` **after** the
-  original `animEvent` has run is the authoritative "this swing toppled it" test — vanilla uses
-  exactly that check to force-complete the action. This removes the need for the current
-  `OnTick` + `findAdjacentTree` heuristic entirely.
-- **Bushes:** wrap `ISRemoveBush.animEvent` (`event == "Chop"`), which is where vanilla applies
-  endurance and weapon damage.
+**Bushes are hooked on `complete()`, not `animEvent()`,** for exactly that reason: `Chop` repeats
+throughout the action, so awarding there would pay out several times for one bush. `complete()` runs
+once and is where vanilla actually removes the bush. It also needs no `isClient()` guard —
+`LuaTimedActionNew.complete()` returns *before* invoking the Lua `complete` function when
+`GameClient.client` is true, so the body only ever runs in singleplayer or on the server.
 
 Note that `ISRemoveBush:animEvent` guards its endurance block with `isServer()`, so in
-**singleplayer** `ISRemoveBush:useEndurance` is never called — the existing endurance-refund
-wrapper on that class is a no-op in SP. `ISChopTreeAction` has no such guard and does refund
-correctly.
+**singleplayer** `ISRemoveBush:useEndurance` is never called — the endurance-refund wrapper on that
+class is a no-op in SP. That is vanilla's behaviour, not ours. `ISChopTreeAction` has no such guard
+and does refund correctly.
+
+### Do not re-add the old approach
+
+`Events.OnWeaponHitTree` is still listened to, but only as the **melee-swing** path: a plain attack
+that lands on a tree does fire it, and does damage the tree (`CombatManager` calls
+`IsoTree.WeaponHit` on its `treeHit` field). On that path the engine does not tell us *which* tree,
+so `tree` is `nil` and felled-detection is impossible. That is a deliberate limitation, not a gap
+to fill with another heuristic.
 
 ### Multiplayer
 
@@ -325,23 +351,31 @@ Build 42.15+ dropped `.txt` translation tables and the `_<LANG>` filename suffix
 
 Files are UTF-8, parsed with `org.json`. Nothing else is read.
 
-### What is in the repo today
+### What is in the repo (1.1.0)
 
-| Path | Status |
+`common/media/lua/shared/Translate/<LANG>/` for `EN`, `PT`, `PTBR`, `ES`, `FR`, each with
+`IG_UI.json`, `Sandbox.json` and `UI.json`. All UTF-8, LF, `%%`-compliant.
+
+Fixed in 1.1.0 — for the record, since all four were shipping simultaneously:
+
+| Was | Now |
 |---|---|
-| `42/media/lua/shared/translate/…` | ⚠ lowercase `translate` — works on Windows (case-insensitive NTFS), **fails on Linux dedicated servers** |
-| `translate/en/`, `translate/ptbr/` | ⚠ lowercase language codes — same problem. Vanilla uses `EN`, `PTBR`, `ES`, `FR`, `PT` |
-| `*/IG_UI.json` (EN, ES, FR, PT, PTBR) | ✅ correct type and keys |
-| `*_EN.txt`, `*_ES.txt`, `*_FR.txt`, `*_PTBR.txt` | ❌ **dead files** — never read by 42.20.2 |
-| `Sandbox.json` | ❌ **missing in every language** → the whole Sandbox page renders raw keys |
-| `UI.json` | ❌ **missing in every language** → the Woodcutter trait renders `UI_trait_woodcutter` |
-| Literal `%` in `IG_UI.json` descriptions | ❌ violates the 42.20.1 `%%` rule |
-| ES `IG_UI_ES.txt`, `UI_ES.txt` | ❌ mojibake (legacy Cp1252 bytes) — irrelevant once deleted |
+| `42/media/lua/shared/translate/en/…` — lowercase `translate` **and** lowercase language codes. Worked on Windows (case-insensitive NTFS), silently failed on **Linux dedicated servers** | `common/…/Translate/EN/…` |
+| `*_EN.txt`, `*_ES.txt`, `*_FR.txt`, `*_PTBR.txt` — dead files, never read by 42.20.2 | deleted |
+| No `Sandbox.json` in any language → the whole Sandbox page rendered raw keys | present, 19 options × label + tooltip × 5 languages |
+| No `UI.json` in any language → the Woodcutter trait rendered `UI_trait_woodcutter` | present |
+| Literal `%` in every description | `%%` |
 
-So today: **English and Portuguese players see a correct skill name and description, but an
-entirely untranslated Sandbox page and trait.** The `README` and `workshop.txt` claim EN + PT-BR
-support; in reality ES, FR and PT-BR skill names ship too, and no language has working Sandbox or
-UI strings.
+The 15 files are **generated, not hand-edited**:
+
+```bash
+python scripts/gen_translations.py     # rewrites every Translate/<LANG>/*.json
+```
+
+Edit the tables in `scripts/gen_translations.py` and re-run it. That is what keeps 5 languages × 3
+files from drifting apart, and the script asserts the `%%` rule on every string it writes, so a
+lone `%` fails the run instead of reaching a player. Adding a language means one new entry per
+table, nothing else.
 
 ### Type → key-prefix table
 
@@ -388,7 +422,7 @@ Also check `Zomboid/console.txt` after launching — 42.20.2 logs an error line 
 
 ## 8. Sandbox options
 
-`42/media/sandbox-options.txt` defines 18 options, all on `page = Woodcutting`, all namespaced
+`42/media/sandbox-options.txt` defines 19 options, all on `page = Woodcutting`, all namespaced
 `Woodcutting.<name>` so they arrive in Lua as `SandboxVars.Woodcutting.<name>`.
 
 `shared/WoodcuttingSandboxBridge.lua` copies them into `Woodcutting.Settings` on `OnGameStart`,
@@ -398,7 +432,7 @@ Adding an option requires **four** edits, and skipping any one of them fails sil
 
 1. the `option` block in `sandbox-options.txt`
 2. the copy line in `WoodcuttingSandboxBridge.lua`
-3. `Sandbox_Woodcutting_<Name>` + `_tooltip` in `Sandbox.json`, **per language**
+3. an entry in the `SANDBOX` table in `scripts/gen_translations.py`, then re-run it
 4. a matching default in `Woodcutting.Settings` (`WoodcuttingSkillDefinitions.lua`)
 
 ### Settings not exposed to Sandbox
@@ -409,17 +443,25 @@ These live only in `Woodcutting.Settings` and cannot be changed by a server admi
 `bonusConditionLowerOneInPerLevel`, `caloriesSavedModifierPerLevel`,
 `bonusAxeTreeDamagePerLevel`.
 
-`caloriesSavedModifierPerLevel` is declared but **never read anywhere** — it is dead configuration.
-Either wire it into the `ISChopTreeAction` calorie modifier (`o.caloriesModifier = 8` in vanilla)
-or delete it.
+`caloriesSavedModifierPerLevel` was dead configuration until 1.1.0. It is now applied in the
+`new` wrapper, which scales vanilla's `o.caloriesModifier = 8` down by
+`caloriesSavedModifierPerLevel × level / 10`, capped at 90%. Java reads `caloriesModifier` off the
+Lua table when the action is queued — *after* `:new()` returns — which is why modifying it there
+takes effect.
 
-### `Woodcutting.AdjustNatureAbundance()` mutates in place
+### `Woodcutting.AdjustNatureAbundance()` is pure
 
-It multiplies `Settings.ChanceOfExtrasOneIn` by the abundance factor and writes the result back
-into the same table. It is registered on **both** `OnGameStart` and `OnServerStarted`. On a listen
-server both can fire, compounding the multiplier. It also runs *before* or *after* the sandbox
-bridge depending on event order, so which values get scaled is not deterministic. Make it pure —
-compute from a pristine base table — when you next touch it.
+`Woodcutting.BaseChanceOfExtrasOneIn` holds the un-scaled chances; `AdjustNatureAbundance()`
+derives `Settings.ChanceOfExtrasOneIn` from it. **The Sandbox bridge writes into the base table,
+never into the effective one**, and calls `AdjustNatureAbundance()` itself once the copy is done.
+
+Before 1.1.0 the function multiplied `Settings.ChanceOfExtrasOneIn` in place and was registered on
+both `OnGameStart` and `OnServerStarted`, so it could compound on a listen server — and because
+`WoodcuttingSkillDefinitions.lua` is pulled in by `require` before the bridge file's own event
+registration, abundance ran *first* and the sandbox copy then overwrote it, meaning the abundance
+setting was ignored whenever a Woodcutting sandbox block existed. Keeping the function pure and
+calling it from the end of the bridge removes both failure modes. **Do not re-register it in a way
+that depends on event ordering.**
 
 ---
 
@@ -432,29 +474,31 @@ on the fact that the relevant code paths already run server-side:
 - `ISChopTreeAction:animEvent` and `ISRemoveBush:animEvent` gate their gameplay effects on
   `not isClient()` / `isServer()`, and `serverStart()` emulates the anim events server-side.
 
-**Open risk:** `WoodCuttingDamagePerLevel.lua` lives in `server/` and applies `setTreeDamage` from
-`OnEquipPrimary`. Equipping is a client-side action; whether `OnEquipPrimary` fires on a dedicated
-server for a remote player is **unverified**. If it does not, tree-damage scaling silently does
-nothing in multiplayer while working fine in singleplayer. Applying the scaling inside the
-`animEvent` wrapper (§5) instead would remove the doubt entirely, since that is guaranteed to run
-server-side immediately before `WeaponHit` reads `getTreeDamage()`.
+`WoodCuttingDamagePerLevel.lua` lives in `server/` and applies `setTreeDamage` from
+`OnEquipPrimary`, `LevelPerk` and `OnWeaponHitTree`. Equipping is a client-side action, and whether
+`OnEquipPrimary` fires on a dedicated server for a remote player is **unverified** — so since 1.1.0
+the `animEvent` wrapper also calls `Woodcutting.prepareWeaponForTreeHit` immediately before
+delegating to vanilla, i.e. immediately before `IsoTree.WeaponHit` reads `getTreeDamage()`. That
+call is guaranteed to run server-side, so damage scaling no longer depends on the answer.
 
 ### Mod data
 
 Stored directly on `player:getModData()`, un-namespaced:
 
 ```lua
-modData.treekills = <int>   -- written by addTreeFelledXP, read by IsCharacterTreeKills.lua
-modData.bushkills = <int>   -- READ but never written (§5)
+modData.treekills = <int>   -- written by addTreeFelledXP,  read by IsCharacterTreeKills.lua
+modData.bushkills = <int>   -- written by addBushRemovedXP, read by IsCharacterTreeKills.lua
 ```
+
+Both writers call `character:transmitModData()` afterwards, so the counters reach the client that
+renders them. (`transmitModData` is inherited from `IsoObject`; vanilla B42 Lua calls it on
+characters in `ISHotbar.lua` and `ISWidgetTitleHeader.lua`.)
 
 Weapons carry one key:
 
 ```lua
 weapon:getModData().__WDC_baseTreeDamage = <int>   -- one-time snapshot, see below
 ```
-
-Nothing calls `transmitModData()`. Add it if these values ever need to reach an MP client.
 
 ### The `__WDC_baseTreeDamage` snapshot
 
@@ -470,42 +514,44 @@ If another mod raises an axe's `TreeDamage` *before* this one, the inflated valu
 
 ---
 
-## 10. Known bugs and open items
+## 10. Bug status
 
-Ordered by player impact. Items 1–3 are confirmed against 42.20.2; the rest are unverified.
+### Fixed in 1.1.0
 
-1. **No Woodcutting XP is ever awarded.** Root cause fully established in §5 —
-   `Events.OnWeaponHitTree` does not fire for the Build 42 chop-tree timed action. Reported
-   independently by three players. Fix by wrapping `ISChopTreeAction:animEvent`.
-2. **Tree-felled XP, extra loot and the tree counter never trigger**, same root cause, via the
-   dead `Woodcutting.onTreeFelled` dispatch.
-3. **The Sandbox page and the Woodcutter trait are untranslated in every language**, because
-   `Sandbox.json` and `UI.json` do not exist and 42.20.2 ignores the `.txt` files (§7).
-4. **Translation directories use the wrong case** (`translate/en`) — invisible on Windows, fatal on
-   Linux dedicated servers (§7).
-5. **Literal `%` in translation JSON** violates the 42.20.1 rule and will break when the
-   compatibility shim is removed (§7).
-6. **`modData.bushkills` has no producer** — the bush half of the Kill Count integration is dead
-   (§5).
-7. **`findAdjacentTree` picks an arbitrary adjacent tree**, not the one being chopped. It scans the
-   3×3 around the character and returns the first hit. With two adjacent trees it can attribute a
-   felling to the wrong one. Wrapping `animEvent` gives us `self.tree` directly and makes the whole
-   heuristic unnecessary.
-8. **`AdjustNatureAbundance` can compound** on a listen server (§8).
-9. **`caloriesSavedModifierPerLevel` is dead configuration** (§8).
-10. **`OnEquipPrimary` on a dedicated server is unverified** (§9).
+All statically verified — Lua parses as 5.1, every Java API called was checked against the 42.20.2
+jar, all 15 translation JSONs parse as UTF-8, and no game-parsed file contains a lone `%`.
+**None of it has been exercised in a running game yet — see §11 for the test list.**
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | **No Woodcutting XP is ever awarded** (the reported bug, 3 players) | `ISChopTreeAction:animEvent` wrapper raising `Woodcutting.onTreeHit` (§5) |
+| 2 | Tree-felled XP, extra loot and `treekills` never trigger | same wrapper raises `onTreeFelled` on the toppling swing (§5) |
+| 3 | Sandbox page and Woodcutter trait untranslated in every language | `Sandbox.json` + `UI.json` added for 5 languages (§7) |
+| 4 | Translation folders `translate/en` — broken on Linux servers | moved to `common/…/Translate/EN` (§7) |
+| 5 | Literal `%` in translation JSON | `%%` throughout, asserted by the generator (§7) |
+| 6 | `modData.bushkills` had no producer | `ISRemoveBush:complete` wrapper raising `onBushRemoved` (§5) |
+| 7 | `findAdjacentTree` attributed a felling to an arbitrary neighbouring tree | deleted; `self.tree` is exact (§5) |
+| 8 | `AdjustNatureAbundance` compounded, and was overwritten by the sandbox bridge | made pure, driven from the bridge (§8) |
+| 9 | `caloriesSavedModifierPerLevel` was dead configuration | applied to `caloriesModifier` in the `new` wrapper (§8) |
+| 10 | Damage scaling depended on `OnEquipPrimary` firing server-side | also applied in the `animEvent` wrapper (§9) |
+| 12 | `mod.info` had no `author`, no `modversion` | added (§2) |
+| 14 | `steamdesc.txt` shipped inside `Contents/` | moved to the repo root |
+| 15 | `client/WoodcuttingSkillTraits.lua` was an empty stub, and collided by basename with the `shared/` file of the same name | deleted |
+
+### Still open
+
 11. **`isAxe()` uses `WeaponCategory.AXE`, but the game gates chopping on `ItemTag.CHOP_TREE`.**
     These are different sets. An item tagged `CHOP_TREE` that is not category `AXE` chops trees but
-    receives none of this mod's axe bonuses; the reverse is also possible. Decide deliberately
-    which one the mod should key off.
-12. **`mod.info` has no `author` and no `modversion`** (§2).
+    receives none of this mod's axe bonuses. Deliberately **not** changed in 1.1.0 — it is a balance
+    decision, not a bug, and this release should not mix the two. `addWoodcuttingXP` now logs a
+    one-time `[Woodcutting][DIAG] chopTreeNotAxe:<fullType>` line the first time it sees such a
+    weapon, so the decision can be made from real data. Check `console.txt` before choosing.
 13. **Two filenames are misspelled** — `WoocuttingHitTree.lua` (missing `d`) and
     `B42_TimedActionPacthes.lua` (`Pacthes`). Harmless to the game; rename only alongside a change
     that already touches them, since renames are noisy in diffs.
-14. **`steamdesc.txt` ships inside `Contents/`** and duplicates `workshop.txt`. Harmless but it is
-    documentation inside the upload; move it to the repo root.
-15. **`client/WoodcuttingSkillTraits.lua` is an empty stub.** Delete it once nothing requires it.
 16. **`poster.png` is 685×665.** The convention is 1024×1024. `preview.png` is correctly 256×256.
+17. **Bush XP is flat.** `bushRemovedXp` grants the same amount regardless of bush type or skill
+    level. Fine as a starting point; revisit if it turns out to be a grinding vector.
 
 ---
 
@@ -550,41 +596,81 @@ Read `shared/TimedActions/ISChopTreeAction.lua` before changing anything in §5.
 
 ### Static checks
 
-```bash
-cd "Contents/mods/WoodcuttingSkill - Build 42"
+Run all four from the repo root. `grep -P` needs a UTF-8 locale; on Git Bash for Windows it errors
+out with *"-P supports only unibyte and UTF-8 locales"*, so the percent check uses Python instead.
 
-# 1. Percent rule
-grep -rnP '(?<!%)%(?!%)' .
+```bash
+# 1. Percent rule - no lone % in anything the game parses as text
+python - <<'PY'
+import re, glob, io
+pat = re.compile(r'(?<!%)%(?!%)')
+files = [f for e in ("json","txt","info") for f in glob.glob("Contents/**/*."+e, recursive=True)]
+files.append("workshop.txt")
+bad = sum(1 for f in files for _ in pat.finditer(io.open(f, encoding="utf-8").read()))
+print(len(files), "files checked,", bad, "problems")
+PY
 
 # 2. Lua syntax (Kahlua is Lua 5.1)
-find . -name "*.lua" -exec luac5.1 -p {} \;
-#   or, with node: npm i luaparse && parse each file with luaVersion:"5.1"
+npm install --no-save luaparse
+node -e 'const L=require("luaparse"),fs=require("fs"),p=require("path");let n=0,bad=0;
+(function w(d){for(const e of fs.readdirSync(d,{withFileTypes:true})){const q=p.join(d,e.name);
+if(e.isDirectory())w(q);else if(e.name.endsWith(".lua")){n++;try{L.parse(fs.readFileSync(q,"utf8"),
+{luaVersion:"5.1"})}catch(err){bad++;console.log("FAIL",q,err.message)}}}})("Contents");
+console.log(n+" lua parsed, "+bad+" failed.")'
 
 # 3. JSON validity + UTF-8
-find . -name "*.json" -exec python -c "import json,sys;json.load(open(sys.argv[1],encoding='utf-8'))" {} \;
+python -c "import json,glob,io;[json.load(io.open(f,encoding='utf-8')) for f in glob.glob('Contents/**/*.json',recursive=True)];print('json ok')"
 
 # 4. No documentation inside Contents
-find . -name "*.md"
+find Contents -name "*.md"
+```
+
+A cheap fifth check that has already earned its keep — every `Woodcutting.*` call resolves to a
+definition somewhere in the mod:
+
+```bash
+python - <<'PY'
+import re, glob, io
+d, c = set(), {}
+for f in glob.glob("Contents/**/*.lua", recursive=True):
+    s = io.open(f, encoding="utf-8").read()
+    d |= set(re.findall(r'function\s+Woodcutting\.(\w+)', s))
+    d |= set(re.findall(r'^\s*Woodcutting\.(\w+)\s*=', s, re.M))
+    for m in re.finditer(r'Woodcutting\.(\w+)\s*\(', s): c.setdefault(m.group(1), set()).add(f)
+print("undefined:", {k: sorted(v) for k, v in c.items() if k not in d} or "none")
+PY
 ```
 
 ### In-game checks
 
-1. **New singleplayer save, 42.20.2** — Woodcutting appears in the Skills tab under Survivalist;
-   its name and description are translated; no errors in `console.txt`.
-2. **Chop one tree with an axe** — XP appears in the skill panel. This is the regression test for
-   §5. Watch for `[Woodcutting][DIAG]` lines confirming the hook fired.
-3. **Fell a tree** — bonus XP, `treekills` increments, extra loot rolls.
-4. **Sandbox page** — every option shows a translated label and tooltip, no raw `Sandbox_*` keys.
-5. **Level to the one-hit threshold** — a tree falls in one swing.
-6. **Dedicated server, two clients** — XP replicates and is granted server-side only. Confirm on a
-   **Linux** server that translations still load (§7).
-7. **`console.txt` / `translationProblems.txt`** — zero percent-handling errors, zero missing keys.
+**None of these have been run against 1.1.0 yet.** Items 1–3 are the regression tests for the bug
+this release exists to fix and should be run first.
+
+1. **New singleplayer save, 42.20.2** — Woodcutting appears in the Skills tab under Survivalist,
+   with a translated name and description. `console.txt` shows
+   `patch:applied:ISChopTreeAction:animEvent` and no errors.
+2. **Chop one tree with an axe** — XP appears in the skill panel on the *first swing*, before the
+   tree falls. This is the regression test for §5.
+3. **Fell that tree** — bonus XP lands, `treekills` increments in the Kill Count panel if that mod
+   is installed, extra loot rolls on a medium/large tree.
+4. **Clear a bush** — XP lands exactly **once**, not once per swing. This is the regression test
+   for hooking `complete()` rather than `animEvent()`.
+5. **Sandbox page** — all 19 options show a translated label and tooltip, no raw `Sandbox_*` keys,
+   no stray `%%`.
+6. **Woodcutter trait** in character creation shows a name and description, not `UI_trait_*`.
+7. **Level to the one-hit threshold** — a tree falls in one swing.
+8. **Nature Abundance** — set it to Very Poor and Very Abundant on two saves and confirm the loot
+   rate actually differs. This never worked before 1.1.0 (§8).
+9. **Dedicated server, two clients** — XP replicates, is granted server-side only, and damage
+   scaling applies for a remote player. Confirm on a **Linux** server that translations load (§7).
+10. **`console.txt` / `translationProblems.txt`** — zero percent-handling errors, zero missing keys,
+    and check for any `chopTreeNotAxe:` diagnostic (§10 item 11).
 
 ---
 
 ## 12. Releasing
 
-Semantic versioning. Add `modversion=` to `mod.info` first (§2) so there is something to bump.
+Semantic versioning, tracked in `mod.info`'s `modversion=`.
 
 | Bump | When |
 |---|---|

@@ -91,6 +91,7 @@ SandboxVars.Woodcutting = {
     axeXpPerHit          = 0.05,
     treeFelledXp         = 5.0,
     axeXpOnTreeFelled    = 1.0,
+    bushRemovedXp        = 1.0,
 
     -- Extra loot (1 in N — lower is more likely)
     cumulatedForagingAndWoodcuttingSkillLevelForFruit = 8,
@@ -118,35 +119,36 @@ Set `oneHitLevelThreshold` above 10 to disable the one-hit behaviour entirely.
 
 ## Languages
 
-| Language | Skill name & description | Sandbox page | Trait |
-|---|:--:|:--:|:--:|
-| English | ✅ | ⚠️ | ⚠️ |
-| Portuguese (Brazil) | ✅ | ⚠️ | ⚠️ |
-| Portuguese | ✅ | ⚠️ | ⚠️ |
-| Spanish | ✅ | ⚠️ | ⚠️ |
-| French | ✅ | ⚠️ | ⚠️ |
+Fully translated — skill name and description, all 19 Sandbox options with tooltips, and the
+Woodcutter trait — in **English**, **Portuguese**, **Portuguese (Brazil)**, **Spanish** and
+**French**.
 
-⚠️ Build 42.15 replaced the old `.txt` translation tables with `.json`, and the Sandbox and trait
-strings have not been converted yet — those currently render as raw keys such as
-`Sandbox_Woodcutting_xpMultiplier`. Being fixed; see
-[AGENTS.md §7](AGENTS.md#7-translations--currently-broken).
+Translation contributions are very welcome. The files are generated rather than hand-edited: add
+your language to the tables in [`scripts/gen_translations.py`](scripts/gen_translations.py), run
+`python scripts/gen_translations.py`, and open a pull request.
 
-Translation contributions are very welcome — add
-`Contents/mods/WoodcuttingSkill - Build 42/42/media/lua/shared/Translate/<LANG>/IG_UI.json` and open
-a pull request.
+## Changelog
 
-## Known issues
+### 1.1.0 — the XP fix
 
-| Issue | Status |
-|---|---|
-| **No Woodcutting XP is awarded when chopping trees** | Root cause identified — Build 42 moved tree chopping off the `OnWeaponHitTree` event. Fix in progress. |
-| Tree-felled bonus XP and extra loot never trigger | Same root cause. |
-| Sandbox page and Woodcutter trait show untranslated keys | Missing `Sandbox.json` / `UI.json`. |
-| Translations do not load on Linux dedicated servers | Translation folders use the wrong letter case. |
+- **Fixed: chopping trees awarded no Woodcutting XP.** Build 42 moved tree felling off the combat
+  path onto a timed action that raises no Lua event, so every reward in the mod was silently dead —
+  and with the skill pinned at level 0, so were the damage scaling, the one-hit threshold and the
+  loot bonuses. The mod now hooks the timed action directly.
+- Fixed: tree-felled bonus XP, extra loot and the tree counter never triggered.
+- Added: Woodcutting XP for clearing bushes, plus the missing bush counter.
+- Fixed: the Sandbox page and the Woodcutter trait displayed raw keys such as
+  `Sandbox_Woodcutting_xpMultiplier` in every language.
+- Fixed: translations never loaded on Linux dedicated servers.
+- Fixed: the Nature Abundance setting was overwritten and had no effect on loot rates.
+- Fixed: felling could be credited to a neighbouring tree when two stood side by side.
+- Added: calorie saving per level, which was configured but never applied.
+- Added: `bushRemovedXp` Sandbox option. Damage scaling now also applies reliably on dedicated
+  servers.
 
-Full technical detail, including the decompiled evidence, is in
+Technical detail, including the decompiled evidence for the root cause, is in
 [AGENTS.md §5](AGENTS.md#5--build-42-tree-chopping--the-critical-engine-change) and
-[§10](AGENTS.md#10-known-bugs-and-open-items).
+[§10](AGENTS.md#10-bug-status).
 
 ---
 
@@ -157,10 +159,15 @@ WoodcuttingSkill_B42/          <- repo root, not uploaded to Steam
 ├── README.md
 ├── AGENTS.md                  <- developer / AI operating manual — read this before editing
 ├── workshop.txt               <- Steam Workshop listing (BBCode)
+├── steamdesc.txt
 ├── preview.png                <- 256x256
+├── scripts/
+│   └── gen_translations.py    <- regenerates every translation file
 └── Contents/                  <- the only folder uploaded to Steam
     └── mods/
         └── WoodcuttingSkill - Build 42/
+            ├── common/        <- shared across all 42.x
+            │   └── media/lua/shared/Translate/{EN,PT,PTBR,ES,FR}/
             └── 42/            <- Build 42 payload
                 ├── mod.info
                 ├── poster.png

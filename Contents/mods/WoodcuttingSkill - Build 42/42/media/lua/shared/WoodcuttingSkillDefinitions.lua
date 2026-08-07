@@ -39,9 +39,10 @@ Woodcutting.Settings = {
     axeXpPerHit = 0.05,
     treeFelledXp = 5.0,
     axeXpOnTreeFelled = 1.0,
+    bushRemovedXp = 1.0,
 
     -- ============================
-    -- NOVOS PARÂMETROS DE DANO
+    -- PARÂMETROS DE DANO
     -- ============================
     -- Multiplicador base e por nível (aplica em QUALQUER arma afetada)
     damageBaseMultiplier  = 1.0,   -- 1.0 = padrão no nível 0
@@ -50,13 +51,22 @@ Woodcutting.Settings = {
     -- Teto de multiplicador (evita absurdos se quiser)
     damageMaxMultiplier   = 8.0,   -- até 8x do dano base
 
-    -- Um-hit a partir deste nível (para atender à sua meta de 1 bate no nível 6–7)
+    -- Um-hit a partir deste nível (para atender à meta de 1 golpe no nível 6–7)
     oneHitLevelThreshold  = 6,     -- nível de Woodcutting a partir do qual vira 1-hit
     oneHitTreeDamage      = 2000,  -- valor alto o suficiente para derrubar qualquer árvore em 1 golpe
 
     -- Restringir só a machados?
     onlyForAxes           = true,  -- true = só machados; false = qualquer HandWeapon
 }
+
+-- Un-scaled loot chances. AdjustNatureAbundance() derives Settings.ChanceOfExtrasOneIn from this
+-- table, never from itself, so it is idempotent and cannot compound when the event that drives it
+-- fires more than once (OnGameStart + OnServerStarted both fire on a listen server).
+-- The Sandbox bridge writes here, not into Settings.ChanceOfExtrasOneIn.
+Woodcutting.BaseChanceOfExtrasOneIn = {}
+for key, value in pairs(Woodcutting.Settings.ChanceOfExtrasOneIn) do
+    Woodcutting.BaseChanceOfExtrasOneIn[key] = value
+end
 
 function Woodcutting.getPerk()
     if Perks.Woodcutting then
@@ -71,6 +81,9 @@ function Woodcutting.getPerk()
         end
         Woodcutting.diag("getPerk:fromstring:fail", "Perks.FromString('Woodcutting') returned " .. tostring(perk) .. " (rejected, falling back to PerkFactory)")
     end
+    -- Last resort only: PerkFactory indexes PerkByName by the *translated* perk name
+    -- (PerkFactory.initTranslations sets perk.name = getText("IGUI_perks_"..translation)), so this
+    -- lookup can only ever succeed while the game language is English.
     if PerkFactory.getPerkFromName then
         local perk = PerkFactory.getPerkFromName("Woodcutting")
         if perk then
@@ -89,8 +102,17 @@ function Woodcutting.isAxe(weapon)
     return scriptItem ~= nil and scriptItem:containsWeaponCategory(WeaponCategory.AXE)
 end
 
+-- Build 42 gates the Chop Tree action on ItemTag.CHOP_TREE, which is a different set from
+-- WeaponCategory.AXE. Used for reporting/diagnostics; balance still keys off isAxe().
+function Woodcutting.canChopTree(weapon)
+    if not weapon or not instanceof(weapon, "HandWeapon") then return false end
+    return weapon:hasTag(ItemTag.CHOP_TREE)
+end
+
 local currentTrees = setmetatable({}, { __mode = "k" })
+local treeHitCallbacks = {}
 local treeFelledCallbacks = {}
+local bushRemovedCallbacks = {}
 
 function Woodcutting.setCurrentTree(character, tree)
     if character then currentTrees[character] = tree end
@@ -100,18 +122,44 @@ function Woodcutting.getCurrentTree(character)
     return character and currentTrees[character] or nil
 end
 
+local function dispatch(callbacks, label, ...)
+    for _, callback in ipairs(callbacks) do
+        local ok, err = pcall(callback, ...)
+        if not ok then
+            print("[Woodcutting] " .. label .. " callback failed: " .. tostring(err))
+        end
+    end
+end
+
+-- Fired once per axe swing that lands on a tree, from either of the two engine paths that can
+-- damage a tree in Build 42: the Chop Tree timed action (B42_TimedActionPacthes.lua) and a plain
+-- melee swing (Events.OnWeaponHitTree). `tree` is nil on the melee path - the engine does not
+-- tell us which tree was hit there.
+function Woodcutting.addOnTreeHit(callback)
+    if callback then table.insert(treeHitCallbacks, callback) end
+end
+
+function Woodcutting.onTreeHit(character, weapon, tree, treeSize, spriteName)
+    Woodcutting.diag("onTreeHit:dispatch", "Woodcutting.onTreeHit() dispatched - " .. #treeHitCallbacks .. " callback(s) registered")
+    dispatch(treeHitCallbacks, "OnTreeHit", character, weapon, tree, treeSize, spriteName)
+end
+
 function Woodcutting.addOnTreeFelled(callback)
     if callback then table.insert(treeFelledCallbacks, callback) end
 end
 
 function Woodcutting.onTreeFelled(character, weapon, tree, treeSize, spriteName)
     Woodcutting.diag("onTreeFelled:dispatch", "Woodcutting.onTreeFelled() dispatched (treeSize=" .. tostring(treeSize) .. ", sprite=" .. tostring(spriteName) .. ") - " .. #treeFelledCallbacks .. " callback(s) registered")
-    for _, callback in ipairs(treeFelledCallbacks) do
-        local ok, err = pcall(callback, character, weapon, tree, treeSize, spriteName)
-        if not ok then
-            print("[Woodcutting] OnTreeFelled callback failed: " .. tostring(err))
-        end
-    end
+    dispatch(treeFelledCallbacks, "OnTreeFelled", character, weapon, tree, treeSize, spriteName)
+end
+
+function Woodcutting.addOnBushRemoved(callback)
+    if callback then table.insert(bushRemovedCallbacks, callback) end
+end
+
+function Woodcutting.onBushRemoved(character, weapon)
+    Woodcutting.diag("onBushRemoved:dispatch", "Woodcutting.onBushRemoved() dispatched - " .. #bushRemovedCallbacks .. " callback(s) registered")
+    dispatch(bushRemovedCallbacks, "OnBushRemoved", character, weapon)
 end
 
 Woodcutting.TreeFruitExtrasList = { -- except winter
@@ -159,41 +207,30 @@ function Woodcutting.noise(text)
     end
 end
 
+-- Recomputes the effective loot chances from BaseChanceOfExtrasOneIn. Pure and idempotent:
+-- calling it twice with the same sandbox settings produces the same result.
 function Woodcutting.AdjustNatureAbundance()
-    local chances = Woodcutting.Settings.ChanceOfExtrasOneIn
-    if SandboxVars.NatureAbundance == 1 then -- very poor
-        Woodcutting.Settings.ChanceOfExtrasOneIn.Log = math.floor(chances.Log * 1.2);
-        Woodcutting.Settings.ChanceOfExtrasOneIn.TreeBranch = math.floor(chances.TreeBranch * 1.2);
-        Woodcutting.Settings.ChanceOfExtrasOneIn.Twigs = math.floor(chances.Twigs * 1.2);
-        Woodcutting.Settings.ChanceOfExtrasOneIn.Pinecone = math.floor(chances.Pinecone * 1.2);
-        Woodcutting.Settings.ChanceOfExtrasOneIn.PineTreeExtra = math.floor(chances.PineTreeExtra * 1.2);
-        Woodcutting.Settings.ChanceOfExtrasOneIn.FruitTreeExtra = math.floor(chances.FruitTreeExtra * 1.2);
-        Woodcutting.Settings.ChanceOfExtrasOneIn.Winter = math.floor(chances.Winter * 1.2);
-    elseif SandboxVars.NatureAbundance == 2 then -- poor
-        Woodcutting.Settings.ChanceOfExtrasOneIn.Log = math.floor(chances.Log * 1.1);
-        Woodcutting.Settings.ChanceOfExtrasOneIn.TreeBranch = math.floor(chances.TreeBranch * 1.1);
-        Woodcutting.Settings.ChanceOfExtrasOneIn.Twigs = math.floor(chances.Twigs * 1.1);
-        Woodcutting.Settings.ChanceOfExtrasOneIn.Pinecone = math.floor(chances.Pinecone * 1.1);
-        Woodcutting.Settings.ChanceOfExtrasOneIn.PineTreeExtra = math.floor(chances.PineTreeExtra * 1.1);
-        Woodcutting.Settings.ChanceOfExtrasOneIn.FruitTreeExtra =  math.floor(chances.FruitTreeExtra * 1.1);
-        Woodcutting.Settings.ChanceOfExtrasOneIn.Winter = math.floor(chances.Winter * 1.2);
-    elseif SandboxVars.NatureAbundance == 4 then -- abundant
-        Woodcutting.Settings.ChanceOfExtrasOneIn.Log = math.floor(chances.Log * 0.9);
-        Woodcutting.Settings.ChanceOfExtrasOneIn.TreeBranch = math.floor(chances.TreeBranch * 0.9);
-        Woodcutting.Settings.ChanceOfExtrasOneIn.Twigs = math.floor(chances.Twigs * 0.9);
-        Woodcutting.Settings.ChanceOfExtrasOneIn.Pinecone = math.floor(chances.Pinecone * 0.9);
-        Woodcutting.Settings.ChanceOfExtrasOneIn.PineTreeExtra = math.floor(chances.PineTreeExtra * 0.9);
-        Woodcutting.Settings.ChanceOfExtrasOneIn.FruitTreeExtra =  math.floor(chances.FruitTreeExtra * 0.9);
-        Woodcutting.Settings.ChanceOfExtrasOneIn.Winter = math.floor(chances.Winter * 0.9);
-    elseif SandboxVars.NatureAbundance == 5 then -- very abundant
-        Woodcutting.Settings.ChanceOfExtrasOneIn.Log = math.floor(chances.Log * 0.8);
-        Woodcutting.Settings.ChanceOfExtrasOneIn.TreeBranch = math.floor(chances.TreeBranch * 0.8);
-        Woodcutting.Settings.ChanceOfExtrasOneIn.Twigs = math.floor(chances.Twigs * 0.8);
-        Woodcutting.Settings.ChanceOfExtrasOneIn.Pinecone = math.floor(chances.Pinecone * 0.8);
-        Woodcutting.Settings.ChanceOfExtrasOneIn.PineTreeExtra = math.floor(chances.PineTreeExtra * 0.8);
-        Woodcutting.Settings.ChanceOfExtrasOneIn.FruitTreeExtra = math.floor(chances.FruitTreeExtra * 0.8);
-        Woodcutting.Settings.ChanceOfExtrasOneIn.Winter = math.floor(chances.Winter *0.8);
+    local base = Woodcutting.BaseChanceOfExtrasOneIn
+    local abundance = SandboxVars and SandboxVars.NatureAbundance or 3
+    local factor = 1.0
+    if abundance == 1 then     -- very poor
+        factor = 1.2
+    elseif abundance == 2 then -- poor
+        factor = 1.1
+    elseif abundance == 4 then -- abundant
+        factor = 0.9
+    elseif abundance == 5 then -- very abundant
+        factor = 0.8
     end
+
+    local effective = {}
+    for key, value in pairs(base) do
+        effective[key] = math.max(2, math.floor(value * factor))
+    end
+    Woodcutting.Settings.ChanceOfExtrasOneIn = effective
+
+    Woodcutting.diag("AdjustNatureAbundance:applied",
+        "AdjustNatureAbundance() applied factor " .. tostring(factor) .. " (NatureAbundance=" .. tostring(abundance) .. ")")
 end
 
 Events.OnGameStart.Add(Woodcutting.AdjustNatureAbundance)

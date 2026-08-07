@@ -9,6 +9,20 @@ description=[b]B42-safe Timed Actions[/b] (server-authoritative) without overrid
 description=
 description=[hr][/hr]
 description=
+description=[h1]Latest Update — 1.1.0[/h1]
+description=[b]Fixed: chopping trees awarded no Woodcutting XP.[/b] Build 42 moved tree felling off the combat path onto a timed action that raises no Lua event, so every reward in the mod was silently dead — and with the skill stuck at level 0, so were the damage scaling, the one-hit threshold and the loot bonuses. The mod now hooks the timed action directly.
+description=[list]
+description=[*]Fixed: tree-felled bonus XP, extra loot and the tree counter never triggered.
+description=[*]Added: Woodcutting XP for clearing bushes, plus the missing bush counter.
+description=[*]Fixed: the Sandbox page and the Woodcutter trait showed raw keys in every language.
+description=[*]Fixed: translations never loaded on Linux dedicated servers.
+description=[*]Fixed: the Nature Abundance setting had no effect on loot rates.
+description=[*]Fixed: felling could be credited to a neighbouring tree.
+description=[*]Added: calorie saving per level, and a [b]bushRemovedXp[/b] Sandbox option.
+description=[/list]
+description=
+description=[hr][/hr]
+description=
 description=[h1]What’s new in the B42 version[/h1]
 description=[list]
 description=[*][b]Safe Timed-Action patch[/b] for Chop Tree / Remove Bush (no vanilla overrides; compatible with B42 changes).
@@ -44,6 +58,7 @@ description=  oneHitLevelThreshold = 6,
 description=  oneHitTreeDamage     = 2000,
 description=  onlyForAxes          = true,
 description=  xpMultiplier         = 1.0,
+description=  bushRemovedXp        = 1.0,
 description=
 description=  cumulatedForagingAndWoodcuttingSkillLevelForFruit = 8,
 description=  FruitTreeExtra = 80,
@@ -78,8 +93,8 @@ description=
 description=[hr][/hr]
 description=
 description=[h1]Languages[/h1]
-description=[b]English[/b], [b]Portuguese (Brazil)[/b].
-description=If you see raw keys like [i]IGUI_perks_Woodcutting[/i], switch the game language to EN/PT-BR and restart (or update the mod).
+description=[b]English[/b], [b]Portuguese[/b], [b]Portuguese (Brazil)[/b], [b]Spanish[/b], [b]French[/b].
+description=Skill, all Sandbox options and the Woodcutter trait are translated in each.
 description=
 description=[hr][/hr]
 description=

@@ -1,2 +1,0 @@
--- Compatibility stub.
--- Build 42.19 trait registration now lives in shared/WoodcuttingSkillTraits.lua.

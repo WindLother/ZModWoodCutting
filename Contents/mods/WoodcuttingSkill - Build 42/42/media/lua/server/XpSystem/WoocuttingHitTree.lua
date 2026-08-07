@@ -1,10 +1,16 @@
--- WoodCuttingHitTree.lua (Server / XPSystem)
+-- WoocuttingHitTree.lua (Server / XPSystem)
+--
+-- Registers the XP and condition rewards. The events that drive them are raised by
+-- shared/B42_TimedActionPacthes.lua, NOT by Events.OnWeaponHitTree - see the header of that file
+-- for why (Build 42 chops trees through a timed action that fires no Lua event).
+--
+-- This file lives under server/, so it does not load on a multiplayer client. Every dispatch that
+-- reaches it has already been gated on `not isClient()`, so all grants here are
+-- server-authoritative.
 
 require "WoodcuttingSkillDefinitions"
 
 local function addWoodcuttingXP(character, handWeapon)
-    Woodcutting.diag("OnWeaponHitTree:fired", "OnWeaponHitTree event fired (weapon=" .. tostring(handWeapon and handWeapon:getType()) .. ")")
-
     if not character or not handWeapon or handWeapon:getType() == "BareHands" then return end
 
     local woodcuttingPerk = Woodcutting.getPerk()
@@ -22,6 +28,15 @@ local function addWoodcuttingXP(character, handWeapon)
 
     if isAxe and (settings.axeXpPerHit or 0) > 0 then
         character:getXp():AddXP(Perks.Axe, settings.axeXpPerHit * multiplier)
+    end
+
+    -- Build 42 gates chopping on ItemTag.CHOP_TREE, but this mod's balance keys off
+    -- WeaponCategory.AXE. Those sets are not identical. Log the first mismatch we ever see so the
+    -- question is answered from real play rather than guessed at. See AGENTS.md §10 item 11.
+    if not isAxe and Woodcutting.canChopTree(handWeapon) then
+        Woodcutting.diag("chopTreeNotAxe:" .. tostring(handWeapon:getFullType()),
+            "Weapon " .. tostring(handWeapon:getFullType()) .. " has ItemTag.CHOP_TREE but is not "
+            .. "WeaponCategory.AXE - it chops trees but receives no axe bonuses from this mod")
     end
 end
 
@@ -48,8 +63,6 @@ local function saveWeaponCondition(character, weapon)
 end
 
 local function addTreeFelledXP(character, weapon)
-    Woodcutting.diag("onTreeFelled:addTreeFelledXP", "addTreeFelledXP() callback invoked")
-
     if not character or not weapon then return end
 
     local woodcuttingPerk = Woodcutting.getPerk()
@@ -73,8 +86,29 @@ local function addTreeFelledXP(character, weapon)
 
     local modData = character:getModData()
     modData.treekills = (modData.treekills or 0) + 1
+    character:transmitModData()
 end
 
-Events.OnWeaponHitTree.Add(addWoodcuttingXP)
-Events.OnWeaponHitTree.Add(saveWeaponCondition)
+-- Bushes are cheaper than trees: a flat, smaller grant, and no axe XP.
+local function addBushRemovedXP(character, weapon)
+    if not character then return end
+
+    local woodcuttingPerk = Woodcutting.getPerk()
+    if not woodcuttingPerk then return end
+
+    local settings = Woodcutting.Settings
+    local xpAmount = (settings.bushRemovedXp or 0) * (settings.xpMultiplier or 1)
+    if xpAmount > 0 then
+        character:getXp():AddXP(woodcuttingPerk, xpAmount)
+        Woodcutting.diag("addBushRemovedXP:granted", "Granted " .. tostring(xpAmount) .. " Woodcutting XP on bush removed")
+    end
+
+    local modData = character:getModData()
+    modData.bushkills = (modData.bushkills or 0) + 1
+    character:transmitModData()
+end
+
+Woodcutting.addOnTreeHit(addWoodcuttingXP)
+Woodcutting.addOnTreeHit(saveWeaponCondition)
 Woodcutting.addOnTreeFelled(addTreeFelledXP)
+Woodcutting.addOnBushRemoved(addBushRemovedXP)

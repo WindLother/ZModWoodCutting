@@ -1,4 +1,0 @@
-UI_PTBR = {
-    UI_trait_woodcutter = "Woodcutter",
-    UI_trait_woodcutterdesc = "Começa com +1 Woodcutting e é melhor para conseguir lenha.",
-}

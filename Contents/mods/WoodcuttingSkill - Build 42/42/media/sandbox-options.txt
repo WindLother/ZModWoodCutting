@@ -98,6 +98,16 @@ option Woodcutting.axeXpOnTreeFelled
     translation = Woodcutting_axeXpOnTreeFelled,
 }
 
+option Woodcutting.bushRemovedXp
+{
+    type = double,
+    default = 1.0,
+    min = 0.0,
+    max = 100.0,
+    page = Woodcutting,
+    translation = Woodcutting_bushRemovedXp,
+}
+
 option Woodcutting.cumulatedForagingAndWoodcuttingSkillLevelForFruit
 {
     type = integer,

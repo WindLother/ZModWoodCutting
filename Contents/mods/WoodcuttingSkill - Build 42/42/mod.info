@@ -1,4 +1,6 @@
 name=Woodcutting Skill — Overhaul (B42)
 id=WoodcuttingSkill_B42
+author=WindLother
+modversion=1.1.0
 poster=poster.png
 description=Overhaul of the original “Woodcutting Skill” by Champy for Build 42. Damage scales by level (optional 1-hit threshold), extra-loot rework, XP multiplier, full Sandbox page (SP/MP/Admin). Server-authoritative logic for MP.

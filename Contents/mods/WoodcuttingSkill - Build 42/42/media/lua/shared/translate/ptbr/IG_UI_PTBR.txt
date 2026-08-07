@@ -1,6 +1,0 @@
-IG_UI_PTBR = {
-    IGUI_perks_Woodcutting = "Woodcutting",
-    IGUI_perks_Woodcutting_Description = "Cortar árvores e remover arbustos com mais eficiência: -7% de vigor por nível, +2 de dano em árvores por nível, +10% de velocidade ao remover arbustos por nível, chance de loot extra em árvores médias/grandes; no nível 8 o corte não evolui para Exertion Excessiva.",
-    IGUI_trees = "Árvores",
-    IGUI_bushes = "Arbustos",
-}
