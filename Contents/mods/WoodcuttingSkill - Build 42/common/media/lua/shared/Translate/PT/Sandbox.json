@@ -7,7 +7,7 @@
     "Sandbox_Woodcutting_damageMaxMultiplier": "Teto do Multiplicador de Dano",
     "Sandbox_Woodcutting_damageMaxMultiplier_tooltip": "Limite máximo do multiplicador total de dano a árvores.",
     "Sandbox_Woodcutting_oneHitLevelThreshold": "Nível para Derrubar num Golpe",
-    "Sandbox_Woodcutting_oneHitLevelThreshold_tooltip": "A partir deste nível de Corte de Madeira, as árvores caem num golpe. Acima de 10 desativa.",
+    "Sandbox_Woodcutting_oneHitLevelThreshold_tooltip": "A partir deste nível de Corte de Madeira, as árvores caem num golpe. Use 11 ou mais para desativar por completo. 0 faz todas as árvores caírem num golpe desde o início.",
     "Sandbox_Woodcutting_oneHitTreeDamage": "Valor de TreeDamage num Golpe",
     "Sandbox_Woodcutting_oneHitTreeDamage_tooltip": "Valor de TreeDamage usado quando o limiar de um golpe é atingido.",
     "Sandbox_Woodcutting_onlyForAxes": "Apenas para Machados",

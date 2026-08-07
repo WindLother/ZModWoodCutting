@@ -7,7 +7,7 @@
     "Sandbox_Woodcutting_damageMaxMultiplier": "Max Damage Multiplier (cap)",
     "Sandbox_Woodcutting_damageMaxMultiplier_tooltip": "Upper cap for the total tree-damage multiplier.",
     "Sandbox_Woodcutting_oneHitLevelThreshold": "One-Hit Level Threshold",
-    "Sandbox_Woodcutting_oneHitLevelThreshold_tooltip": "At or above this Woodcutting level, trees fall in one swing. Set above 10 to disable.",
+    "Sandbox_Woodcutting_oneHitLevelThreshold_tooltip": "At or above this Woodcutting level, trees fall in one swing. Set to 11 or higher to disable this entirely. 0 means every tree falls in one swing from the start.",
     "Sandbox_Woodcutting_oneHitTreeDamage": "One-Hit TreeDamage value",
     "Sandbox_Woodcutting_oneHitTreeDamage_tooltip": "TreeDamage used once the one-hit threshold is reached.",
     "Sandbox_Woodcutting_onlyForAxes": "Affect only Axes",
